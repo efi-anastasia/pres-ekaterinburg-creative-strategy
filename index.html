@@ -79,6 +79,11 @@
 
     .slide.is-active { opacity: 1; visibility: visible; pointer-events: auto; }
     .slide > * { position: relative; z-index: 1; }
+    .slide.mobile-zoomed {
+      z-index: 10;
+      transform: translate3d(var(--mobile-pan-x, 0px), var(--mobile-pan-y, 0px), 0) scale(var(--mobile-zoom, 1));
+      transform-origin: center center;
+    }
     .slide.dark { background: var(--ink); color: var(--paper); }
     .slide.dark .topline, .slide.dark .footer { color: rgba(247,247,245,.58); }
     .slide.dark .page-no { color: rgba(247,247,245,.58); }
@@ -209,6 +214,16 @@
     .control-divider { width: 1px; height: 18px; margin: 0 3px; background: rgba(255,255,255,.16); }
     .nav-group .restart { font-size: 14px; }
     .nav-group .fullscreen { font-size: 19px; }
+
+    @media (max-width: 720px) {
+      html, body { width: 100vw; height: 100vh; }
+      body { overflow: hidden; }
+      .stage { gap: 0; padding: 0; }
+      .presentation-frame { width: 100vw; height: 100vh; }
+      .canvas { overflow: visible; }
+      .controls { display: none; }
+      .slide { cursor: pointer; }
+    }
 
     @media print {
       @page { size: 1920px 1080px; margin: 0; }
@@ -390,6 +405,19 @@
     const controls = document.querySelector(".controls");
     const fullscreenButton = document.querySelector("[data-fullscreen]");
     let current = 0;
+    const mobileQuery = window.matchMedia("(max-width: 720px)");
+    let mobileZoom = 1;
+    let mobilePanX = 0;
+    let mobilePanY = 0;
+    let gestureStartDistance = 0;
+    let gestureStartZoom = 1;
+    let gestureStartPanX = 0;
+    let gestureStartPanY = 0;
+    let gestureStartX = 0;
+    let gestureStartY = 0;
+    let gestureMoved = false;
+    let pinchActive = false;
+    let suppressTapUntil = 0;
 
     function formatPageNumber(index, total) {
       return String(index + 1).padStart(2, "0") + " / " + String(total).padStart(2, "0");
@@ -397,6 +425,7 @@
 
     function goTo(index) {
       current = Math.max(0, Math.min(index, slides.length - 1));
+      resetMobileZoom();
       slides.forEach((slide, i) => {
         slide.classList.toggle("is-active", i === current);
         const pageNo = slide.querySelector(".page-no");
@@ -404,6 +433,42 @@
       });
       count.textContent = formatPageNumber(current, slides.length);
       requestAnimationFrame(() => runLayoutQA());
+    }
+
+    function getActiveSlide() {
+      return slides[current];
+    }
+
+    function applyMobileZoom() {
+      const activeSlide = getActiveSlide();
+      if (!activeSlide) return;
+      activeSlide.classList.toggle("mobile-zoomed", mobileZoom > 1.001);
+      activeSlide.style.setProperty("--mobile-zoom", mobileZoom.toFixed(3));
+      activeSlide.style.setProperty("--mobile-pan-x", mobilePanX.toFixed(1) + "px");
+      activeSlide.style.setProperty("--mobile-pan-y", mobilePanY.toFixed(1) + "px");
+    }
+
+    function resetMobileZoom() {
+      mobileZoom = 1;
+      mobilePanX = 0;
+      mobilePanY = 0;
+      slides.forEach((slide) => {
+        slide.classList.remove("mobile-zoomed");
+        slide.style.removeProperty("--mobile-zoom");
+        slide.style.removeProperty("--mobile-pan-x");
+        slide.style.removeProperty("--mobile-pan-y");
+      });
+    }
+
+    function clampMobilePan() {
+      const maxX = (1920 * (mobileZoom - 1)) / 2;
+      const maxY = (1080 * (mobileZoom - 1)) / 2;
+      mobilePanX = Math.max(-maxX, Math.min(maxX, mobilePanX));
+      mobilePanY = Math.max(-maxY, Math.min(maxY, mobilePanY));
+    }
+
+    function touchDistance(first, second) {
+      return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
     }
 
     document.querySelector("[data-prev]").addEventListener("click", () => goTo(current - 1));
@@ -454,25 +519,85 @@
 
     document.addEventListener("fullscreenchange", () => { updateFullscreenButton(); fitCanvas(); });
 
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchTracking = false;
     const swipeSurface = document.querySelector(".stage");
     swipeSurface.addEventListener("touchstart", (event) => {
-      if (event.touches.length !== 1) return;
-      touchStartX = event.touches[0].clientX;
-      touchStartY = event.touches[0].clientY;
-      touchTracking = true;
-    }, { passive: true });
+      if (!mobileQuery.matches) return;
+      if (event.touches.length === 2) {
+        pinchActive = true;
+        gestureMoved = true;
+        gestureStartDistance = touchDistance(event.touches[0], event.touches[1]);
+        gestureStartZoom = mobileZoom;
+        gestureStartPanX = mobilePanX;
+        gestureStartPanY = mobilePanY;
+        suppressTapUntil = Date.now() + 500;
+        return;
+      }
+      if (event.touches.length === 1) {
+        gestureStartX = event.touches[0].clientX;
+        gestureStartY = event.touches[0].clientY;
+        gestureMoved = false;
+      }
+    }, { passive: false });
+    swipeSurface.addEventListener("touchmove", (event) => {
+      if (!mobileQuery.matches) return;
+      if (event.touches.length === 2 && gestureStartDistance) {
+        event.preventDefault();
+        const distance = touchDistance(event.touches[0], event.touches[1]);
+        mobileZoom = Math.max(1, Math.min(3, gestureStartZoom * (distance / gestureStartDistance)));
+        applyMobileZoom();
+        return;
+      }
+      if (event.touches.length === 1 && mobileZoom > 1) {
+        const deltaX = event.touches[0].clientX - gestureStartX;
+        const deltaY = event.touches[0].clientY - gestureStartY;
+        if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
+          event.preventDefault();
+          gestureMoved = true;
+          mobilePanX = gestureStartPanX + deltaX / Math.max(0.01, canvas.getBoundingClientRect().width / 1920);
+          mobilePanY = gestureStartPanY + deltaY / Math.max(0.01, canvas.getBoundingClientRect().width / 1920);
+          clampMobilePan();
+          applyMobileZoom();
+        }
+      }
+    }, { passive: false });
     swipeSurface.addEventListener("touchend", (event) => {
-      if (!touchTracking || !event.changedTouches.length) return;
-      touchTracking = false;
-      const touch = event.changedTouches[0];
-      const deltaX = touch.clientX - touchStartX;
-      const deltaY = touch.clientY - touchStartY;
-      if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) goTo(current + (deltaX < 0 ? 1 : -1));
+      if (!mobileQuery.matches) return;
+      if (!pinchActive && !gestureMoved && event.changedTouches.length) {
+        const touch = event.changedTouches[0];
+        const deltaX = touch.clientX - gestureStartX;
+        const deltaY = touch.clientY - gestureStartY;
+        if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+          suppressTapUntil = Date.now() + 500;
+          goTo(current + (deltaX < 0 ? 1 : -1));
+        }
+      }
+      if (pinchActive || gestureMoved) {
+        suppressTapUntil = Date.now() + 350;
+        if (event.touches.length < 2) {
+          pinchActive = false;
+          gestureStartDistance = 0;
+        }
+      }
     }, { passive: true });
-    swipeSurface.addEventListener("touchcancel", () => { touchTracking = false; }, { passive: true });
+    swipeSurface.addEventListener("touchcancel", () => {
+      pinchActive = false;
+      gestureStartDistance = 0;
+      gestureMoved = false;
+      suppressTapUntil = Date.now() + 350;
+    }, { passive: true });
+
+    canvas.addEventListener("click", (event) => {
+      if (!mobileQuery.matches || Date.now() < suppressTapUntil) return;
+      if (event.target.closest("button, a, input, textarea, select, [data-no-slide-nav]")) return;
+      const rect = canvas.getBoundingClientRect();
+      const localX = event.clientX - rect.left;
+      goTo(localX < rect.width / 2 ? current - 1 : current + 1);
+    });
+
+    mobileQuery.addEventListener?.("change", () => {
+      resetMobileZoom();
+      fitCanvas();
+    });
 
     function isRendered(element) {
       const style = getComputedStyle(element);
