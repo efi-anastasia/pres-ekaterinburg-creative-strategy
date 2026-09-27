@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Екатеринбург — креативная экономика</title>
+  <style>
+    :root {
+      --design-w: 1920px;
+      --design-h: 1080px;
+      --safe: 58px;
+      --ink: #111111;
+      --muted: #676767;
+      --line: #151515;
+      --soft-line: rgba(17,17,17,.24);
+      --paper: #f7f7f5;
+      --grey: #e9e9e6;
+      --pale: #eeeeeb;
+      --accent: #cbd8cf;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      color: var(--ink);
+      font-family: "Courier New", Courier, monospace;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 20px;
+      overflow: hidden;
+      background: #000;
+      touch-action: pan-y;
+    }
+
+    .presentation-frame {
+      position: relative;
+      width: var(--design-w);
+      height: var(--design-h);
+      flex: none;
+    }
+
+    .canvas {
+      position: absolute;
+      inset: 0;
+      width: var(--design-w);
+      height: var(--design-h);
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      transform-origin: top left;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      padding: var(--safe);
+      overflow: hidden;
+      background: var(--paper);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+
+    .slide.is-active { opacity: 1; visibility: visible; pointer-events: auto; }
+    .slide > * { position: relative; z-index: 1; }
+    .slide.dark { background: var(--ink); color: var(--paper); }
+    .slide.dark .topline, .slide.dark .footer { color: rgba(247,247,245,.58); }
+    .slide.dark .page-no { color: rgba(247,247,245,.58); }
+
+    .topline, .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 auto;
+      font-size: 17px;
+      line-height: 1;
+      letter-spacing: .02em;
+    }
+
+    .topline { height: 18px; min-height: 18px; }
+    .footer { height: 45px; min-height: 45px; margin-top: auto; padding-top: 30px; color: var(--muted); }
+    .page-no { font-variant-numeric: tabular-nums; }
+
+    .slide-body {
+      width: 1804px;
+      max-width: 100%;
+      min-width: 0;
+      min-height: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1, h2, h3, strong, b { font-weight: 400; }
+    h1, h2, h3 { letter-spacing: -.08em; }
+    p, li, td, th { letter-spacing: -.035em; }
+
+    .cover .slide-body { display: flex; flex-direction: column; justify-content: flex-end; }
+    .cover-kicker { margin: 34px auto 0; font-size: 19px; line-height: 1; }
+    .cover-title { margin-top: auto; font-size: 205px; line-height: .78; letter-spacing: -.12em; white-space: nowrap; }
+    .cover-title span { display: block; }
+    .cover-meta { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 15px; font-size: 18px; line-height: 1.2; }
+    .cover-meta p { max-width: 420px; }
+
+    .center-copy { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .center-copy .eyebrow { margin-top: 52px; font-size: 20px; }
+    .center-copy .body-copy { max-width: 820px; margin-top: 70px; font-size: 25px; line-height: 1.24; }
+    .center-copy .definition { max-width: 650px; margin-top: 54px; color: var(--muted); font-size: 18px; line-height: 1.28; }
+    .center-copy .action { margin-top: 64px; font-size: 20px; }
+
+    .section-heading { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; margin-top: 100px; }
+    .section-heading h2 { font-size: 94px; line-height: .84; }
+    .section-heading .intro { max-width: 620px; padding-top: 7px; font-size: 23px; line-height: 1.22; }
+
+    .table { width: 100%; margin-top: 82px; border-collapse: collapse; font-size: 20px; }
+    .table th { padding: 0 0 15px; border-bottom: 1px solid var(--line); font-weight: 400; text-align: left; }
+    .table td { padding: 17px 18px 17px 0; border-bottom: 1px solid var(--soft-line); vertical-align: top; line-height: 1.12; }
+    .table th:last-child, .table td:last-child { text-align: right; padding-right: 0; }
+    .table .step { width: 100px; color: var(--muted); }
+    .table .focus { width: 32%; }
+    .table .result { width: 42%; }
+
+    .big-label { position: absolute; left: 0; bottom: 37px; font-size: 190px; line-height: .75; letter-spacing: -.13em; white-space: nowrap; }
+    .asset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 52px; width: 980px; margin: 102px 0 0 auto; }
+    .asset-row { min-height: 170px; padding: 19px 0 22px; border-top: 1px solid var(--line); }
+    .asset-row:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .asset-row h3 { font-size: 32px; line-height: .95; }
+    .asset-row p { max-width: 390px; margin-top: 24px; color: var(--muted); font-size: 17px; line-height: 1.25; }
+
+    .identity { display: grid; grid-template-columns: 560px 1fr; gap: 110px; margin-top: 130px; }
+    .identity h2 { font-size: 104px; line-height: .82; }
+    .identity .side { padding-top: 7px; }
+    .identity .side > p { max-width: 590px; color: var(--muted); font-size: 20px; line-height: 1.25; }
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; max-width: 820px; margin-top: 68px; }
+    .chip { padding: 12px 15px; border: 1px solid var(--line); border-radius: 999px; font-size: 17px; line-height: 1; }
+    .chip:nth-child(3n) { background: var(--accent); border-color: var(--accent); }
+    .identity-statement { max-width: 840px; margin-top: 54px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 42px; line-height: .96; }
+
+    .specialization h2 { max-width: 730px; }
+    .basis-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 90px; border-top: 1px solid var(--line); }
+    .basis { min-height: 164px; padding: 19px 25px 20px 0; border-bottom: 1px solid var(--line); }
+    .basis + .basis { padding-left: 25px; border-left: 1px solid var(--line); }
+    .basis h3 { font-size: 24px; line-height: .95; }
+    .basis p { max-width: 290px; margin-top: 22px; color: var(--muted); font-size: 16px; line-height: 1.25; }
+    .direction-line { display: flex; justify-content: space-between; margin-top: 36px; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 19px; }
+    .directions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 24px; margin-top: 14px; padding-left: 0; list-style: none; color: var(--muted); font-size: 15px; line-height: 1.35; }
+    .directions li { padding: 4px 0; }
+
+    .contours-title { margin-top: 94px; font-size: 94px; line-height: .82; }
+    .contours { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 82px; }
+    .contour { min-height: 345px; padding: 25px 28px; border: 1px solid var(--line); background: var(--grey); }
+    .contour.dark-card { background: var(--ink); color: var(--paper); }
+    .contour .number { color: var(--muted); font-size: 16px; }
+    .dark-card .number { color: rgba(247,247,245,.58); }
+    .contour h3 { max-width: 630px; margin-top: 61px; font-size: 44px; line-height: .87; }
+    .contour p { max-width: 520px; margin-top: 22px; font-size: 18px; line-height: 1.2; }
+    .contour .path { margin-top: 20px; padding-top: 14px; border-top: 1px solid currentColor; font-size: 16px; line-height: 1.18; }
+
+    .portfolio-title { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; margin-top: 92px; }
+    .portfolio-title h2 { font-size: 92px; line-height: .82; }
+    .portfolio-title p { max-width: 570px; padding-top: 7px; font-size: 22px; line-height: 1.22; }
+    .portfolio-title .note { margin-top: 36px; color: var(--muted); font-size: 18px; }
+    .portfolio-table { margin-top: 69px; }
+    .portfolio-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.05fr 1.25fr; border-top: 1px solid var(--line); }
+    .portfolio-row:last-child { border-bottom: 1px solid var(--line); }
+    .portfolio-cell { min-height: 195px; padding: 18px 18px 20px 0; border-right: 1px solid var(--line); }
+    .portfolio-cell + .portfolio-cell { padding-left: 18px; }
+    .portfolio-cell:last-child { border-right: 0; }
+    .portfolio-cell .label { color: var(--muted); font-size: 14px; line-height: 1.1; }
+    .portfolio-cell h3 { margin-top: 37px; font-size: 25px; line-height: .94; }
+    .portfolio-cell p, .portfolio-cell ul { margin-top: 27px; color: var(--muted); font-size: 14px; line-height: 1.24; }
+    .portfolio-cell ul { padding-left: 18px; }
+    .portfolio-cell li + li { margin-top: 8px; }
+    .portfolio-cell:first-child { background: var(--ink); color: var(--paper); padding-right: 20px; }
+    .portfolio-cell:first-child .label { color: rgba(247,247,245,.58); }
+    .portfolio-cell:first-child h3 { font-size: 30px; }
+    .portfolio-cell:last-child { background: var(--accent); }
+    .portfolio-cell:last-child .label { color: var(--ink); }
+    .portfolio-cell:last-child p { color: var(--ink); }
+
+    .closing .slide-body { display: flex; flex-direction: column; justify-content: space-between; }
+    .closing-title { margin-top: 88px; font-size: 177px; line-height: .78; letter-spacing: -.13em; }
+    .closing-title span { display: block; }
+    .closing-copy { display: grid; grid-template-columns: 1fr 1fr; gap: 90px; align-items: end; margin-bottom: 35px; }
+    .closing-copy p { max-width: 730px; font-size: 23px; line-height: 1.2; }
+    .closing-copy .next { max-width: 430px; justify-self: end; padding-top: 16px; border-top: 1px solid var(--line); font-size: 17px; line-height: 1.25; }
+
+    .controls { position: relative; z-index: 20; display: flex; justify-content: center; width: 100%; min-height: 40px; color: #f5f5f2; font: 14px Arial, sans-serif; }
+    .nav-group { display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; background: rgba(24,24,24,.94); backdrop-filter: blur(14px); }
+    .nav-group button { width: 30px; height: 26px; border: 0; border-radius: 999px; background: transparent; color: #f5f5f2; cursor: pointer; font-size: 18px; line-height: 1; }
+    .nav-group button:hover { background: rgba(255,255,255,.14); }
+    .controls .count { min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; }
+    .control-divider { width: 1px; height: 18px; margin: 0 3px; background: rgba(255,255,255,.16); }
+    .nav-group .restart { font-size: 14px; }
+    .nav-group .fullscreen { font-size: 19px; }
+
+    @media print {
+      @page { size: 1920px 1080px; margin: 0; }
+      body { overflow: visible; background: #000; }
+      .stage { position: static; display: block; overflow: visible; }
+      .presentation-frame { width: 1920px; height: auto; }
+      .canvas { position: relative; width: 1920px; height: 1080px; transform: none !important; }
+      .slide { position: relative; opacity: 1; visibility: visible; page-break-after: always; break-after: page; }
+      .controls { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="presentation-frame" id="frame">
+      <main class="canvas" id="canvas">
+        <section class="slide cover is-active" data-label="Старт">
+          <div class="topline"><span>EKATERINBURG / CREATIVE STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <div class="cover-kicker" data-qa-box data-qa-text>Scroll to discover</div>
+            <h1 class="cover-title" data-qa-box data-qa-text><span>КРЕАТИВНАЯ</span><span>ЭКОНОМИКА</span></h1>
+            <div class="cover-meta" data-qa-box>
+              <p data-qa-text>От стратегии территории<br>к активации пространства</p>
+              <p data-qa-text>Екатеринбург<br>2026</p>
+            </div>
+          </div>
+          <div class="footer"><span>Екатеринбург</span><span class="page-no">01 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Контекст">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body center-copy">
+            <div class="eyebrow" data-qa-box data-qa-text>Мы начинаем с территории</div>
+            <p class="body-copy" data-qa-box data-qa-text>Креативная экономика превращает идентичность региона в фактор экономического роста: вовлекает жителей, привлекает туристов, бизнес и инвестиции, создаёт высококвалифицированные рабочие места и помогает масштабировать продукты региона.</p>
+            <p class="definition" data-qa-box data-qa-text>Креативная экономика — это особый сектор, в котором производимые товары и услуги являются результатом интеллектуальной деятельности.</p>
+            <div class="action" data-qa-box data-qa-text>Исследование → стратегия → активация</div>
+          </div>
+          <div class="footer"><span>Контекст</span><span class="page-no">02 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Метод">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <div class="section-heading" data-qa-box>
+              <h2 data-qa-text>Стратегия<br>территории</h2>
+              <p class="intro" data-qa-text>Определить, на каких ресурсах и ассоциациях строится территория, какие креативные индустрии имеют здесь естественное основание для роста и что мешает им раскрыться.</p>
+            </div>
+            <table class="table" data-qa-box>
+              <thead><tr><th class="step">№</th><th class="focus">Фокус</th><th class="result">Вопрос</th><th>Результат</th></tr></thead>
+              <tbody>
+                <tr><td class="step">01</td><td>Потенциал</td><td>Какими ресурсами уже располагает территория?</td><td>Экономика, культура, наследие, инфраструктура</td></tr>
+                <tr><td class="step">02</td><td>Образ территории</td><td>С чем территория ассоциируется?</td><td>Узнаваемые коды и характер</td></tr>
+                <tr><td class="step">03</td><td>Экономическая специализация</td><td>Где есть естественное основание для роста?</td><td>Приоритетные креативные индустрии</td></tr>
+                <tr><td class="step">04</td><td>Приоритеты развития</td><td>Чего не хватает индустриям?</td><td>Инициативы, которые закрывают разрывы</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="footer"><span>Метод</span><span class="page-no">03 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Потенциал">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <h2 class="big-label" data-qa-box data-qa-text>ПОТЕНЦИАЛ.</h2>
+            <div class="asset-grid">
+              <article class="asset-row" data-qa-box><h3 data-qa-text>Экономика</h3><p data-qa-text>Ключевые отрасли, корпорации и локальные бренды, вокруг которых уже сформирован спрос.</p></article>
+              <article class="asset-row" data-qa-box><h3 data-qa-text>Наследие</h3><p data-qa-text>Архитектура, индустриальная история, культурные коды и места памяти.</p></article>
+              <article class="asset-row" data-qa-box><h3 data-qa-text>Современная культура</h3><p data-qa-text>События, культурные сообщества и городские практики.</p></article>
+              <article class="asset-row" data-qa-box><h3 data-qa-text>Инфраструктура</h3><p data-qa-text>Пространства, креативные кластеры, производственные площадки, технологии и туризм.</p></article>
+            </div>
+          </div>
+          <div class="footer"><span>Потенциал</span><span class="page-no">04 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Образ">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <div class="identity">
+              <h2 data-qa-box data-qa-text>Образ<br>территории.</h2>
+              <div class="side">
+                <p data-qa-box data-qa-text>Из ресурсов, наследия, современной культуры и потенциала развития складываются ассоциативные опоры и узнаваемый образ территории.</p>
+                <div class="chips" data-qa-box>
+                  <span class="chip" data-qa-text>Урал</span><span class="chip" data-qa-text>индустриальное наследие</span><span class="chip" data-qa-text>инженерность</span><span class="chip" data-qa-text>конструктивизм</span><span class="chip" data-qa-text>дизайн</span><span class="chip" data-qa-text>стрит-арт</span>
+                </div>
+                <div class="identity-statement" data-qa-box data-qa-text>Индустриальный.<br>Инженерный.<br>Культурный.<br>Событийный.</div>
+              </div>
+            </div>
+          </div>
+          <div class="footer"><span>Образ</span><span class="page-no">05 / 09</span></div>
+        </section>
+
+        <section class="slide specialization" data-label="Специализация">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <div class="section-heading" data-qa-box>
+              <h2 data-qa-text>Экономическая<br>специализация</h2>
+              <p class="intro" data-qa-text>Креативная индустрия формируется на пересечении ресурсной базы территории, её сильных сторон и узнаваемого образа, компетенций и потребностей бизнеса.</p>
+            </div>
+            <div class="basis-grid" data-qa-box>
+              <article class="basis"><h3 data-qa-text>Ресурсная база</h3><p data-qa-text>Инфраструктура, компетенции, наследие и действующие игроки.</p></article>
+              <article class="basis"><h3 data-qa-text>Образ</h3><p data-qa-text>То, что делает город узнаваемым и отличимым.</p></article>
+              <article class="basis"><h3 data-qa-text>Потребности бизнеса</h3><p data-qa-text>Спрос на продукты, услуги, решения и новые форматы.</p></article>
+            </div>
+            <div class="direction-line" data-qa-box><span data-qa-text>16 направлений</span><span data-qa-text>→</span></div>
+            <ul class="directions" data-qa-box>
+              <li data-qa-text>Кино и телевидение</li><li data-qa-text>Исполнительские искусства</li><li data-qa-text>Музыка</li><li data-qa-text>Дизайн</li>
+              <li data-qa-text>Мода и ювелирное дело</li><li data-qa-text>Видеоигры</li><li data-qa-text>Архитектура и урбанистика</li><li data-qa-text>Ремесла</li>
+              <li data-qa-text>Реклама и PR</li><li data-qa-text>Медиа и СМИ</li><li data-qa-text>Гастрономия</li><li data-qa-text>Отдых и развлечения</li>
+              <li data-qa-text>Культурное наследие</li><li data-qa-text>Арт-индустрия</li><li data-qa-text>Программное обеспечение и IT</li><li data-qa-text>Книжное дело</li>
+            </ul>
+          </div>
+          <div class="footer"><span>Специализация</span><span class="page-no">06 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Два контура">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <h2 class="contours-title" data-qa-box data-qa-text>Два контура<br>роста.</h2>
+            <div class="contours">
+              <article class="contour" data-qa-box><div class="number" data-qa-text>01</div><h3 data-qa-text>Индустриально-<br>инженерный</h3><p data-qa-text>Промышленность, инженерные компетенции, металл, конструктивизм и IT.</p><div class="path" data-qa-text>Архитектура и урбанистика<br>Дизайн / промышленный дизайн<br>Creative tech / программное обеспечение</div></article>
+              <article class="contour dark-card" data-qa-box><div class="number" data-qa-text>02</div><h3 data-qa-text>Городская культура<br>и экономика впечатлений</h3><p data-qa-text>Событийность, культурные сообщества, рестораны, городская аудитория и локальные бренды.</p><div class="path" data-qa-text>Арт-индустрия<br>Отдых и развлечения<br>Гастрономия<br>Реклама и PR</div></article>
+            </div>
+          </div>
+          <div class="footer"><span>Два контура</span><span class="page-no">07 / 09</span></div>
+        </section>
+
+        <section class="slide" data-label="Портфель">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <div class="portfolio-title" data-qa-box>
+              <h2 data-qa-text>Приоритеты<br>развития.</h2>
+              <div><p data-qa-text>Общий вектор развития креативной экономики и список инициатив, которые закрывают найденные разрывы.</p><p class="note" data-qa-text>Каждая приоритетная индустрия получает свою дорожную карту.</p></div>
+            </div>
+            <div class="portfolio-table" data-qa-box>
+              <div class="portfolio-row">
+                <div class="portfolio-cell"><div class="label" data-qa-text>Креативная индустрия</div><h3 data-qa-text>Программное<br>обеспечение</h3></div>
+                <div class="portfolio-cell"><div class="label" data-qa-text>Что уже есть</div><ul><li data-qa-text>Сильная IT- и университетская среда</li><li data-qa-text>Digital-компетенции и агентства</li><li data-qa-text>Корпоративный спрос промышленности</li></ul></div>
+                <div class="portfolio-cell"><div class="label" data-qa-text>Что мешает росту</div><ul><li data-qa-text>Мало межотраслевых команд</li><li data-qa-text>Недостаток заказов на creative tech</li><li data-qa-text>Слабая упаковка продуктов для внешних рынков</li></ul></div>
+                <div class="portfolio-cell"><div class="label" data-qa-text>Задача</div><p data-qa-text>Связать IT-базу города с дизайном, медиа, 3D, играми и промышленными заказчиками.</p></div>
+                <div class="portfolio-cell"><div class="label" data-qa-text>Активация</div><h3 data-qa-text>Creative Tech Lab</h3><p data-qa-text>Демо-дни и оплачиваемые пилоты для бизнеса.</p></div>
+              </div>
+            </div>
+          </div>
+          <div class="footer"><span>Портфель</span><span class="page-no">08 / 09</span></div>
+        </section>
+
+        <section class="slide closing dark" data-label="Переход">
+          <div class="topline"><span>FF / STRATEGY</span><span>Menu</span></div>
+          <div class="slide-body">
+            <h2 class="closing-title" data-qa-box data-qa-text><span>АКТИВИРУЕМ</span><span>ПРОСТРАНСТВО</span></h2>
+            <div class="closing-copy">
+              <p data-qa-box data-qa-text>Только после стратегии территории начинается работа над концепцией активации конкретного пространства.</p>
+              <p class="next" data-qa-box data-qa-text>Шаг 1 — идентичность, экономическая специализация, вектор активации.<br><br>Шаг 2 — концепция, партнёрская модель, программа и финансовая модель.</p>
+            </div>
+          </div>
+          <div class="footer"><span>Переход к активации</span><span class="page-no">09 / 09</span></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="controls" aria-label="Навигация по слайдам">
+      <div class="nav-group">
+        <button type="button" class="restart" data-restart aria-label="Вернуться в начало" title="Restart">R</button>
+        <span class="control-divider" aria-hidden="true"></span>
+        <button type="button" data-prev aria-label="Предыдущий слайд">←</button>
+        <span class="count">01 / 09</span>
+        <button type="button" data-next aria-label="Следующий слайд">→</button>
+        <span class="control-divider" aria-hidden="true"></span>
+        <button type="button" class="fullscreen" data-fullscreen aria-label="На весь экран" title="Enter full screen">⛶</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const frame = document.querySelector("#frame");
+    const canvas = document.querySelector("#canvas");
+    const slides = [...document.querySelectorAll(".slide")];
+    const count = document.querySelector(".count");
+    const controls = document.querySelector(".controls");
+    const fullscreenButton = document.querySelector("[data-fullscreen]");
+    let current = 0;
+
+    function formatPageNumber(index, total) {
+      return String(index + 1).padStart(2, "0") + " / " + String(total).padStart(2, "0");
+    }
+
+    function goTo(index) {
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, i) => {
+        slide.classList.toggle("is-active", i === current);
+        const pageNo = slide.querySelector(".page-no");
+        if (pageNo) pageNo.textContent = formatPageNumber(i, slides.length);
+      });
+      count.textContent = formatPageNumber(current, slides.length);
+      requestAnimationFrame(() => runLayoutQA());
+    }
+
+    document.querySelector("[data-prev]").addEventListener("click", () => goTo(current - 1));
+    document.querySelector("[data-next]").addEventListener("click", () => goTo(current + 1));
+    document.querySelector("[data-restart]").addEventListener("click", () => goTo(0));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key.toLowerCase() === "r" || event.key === "Home") goTo(0);
+      if (event.key === "End") goTo(slides.length - 1);
+      if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(event.key)) { event.preventDefault(); goTo(current + 1); }
+      if (["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key)) { event.preventDefault(); goTo(current - 1); }
+    });
+
+    function fitCanvas() {
+      const horizontalPadding = 40;
+      const verticalPadding = 40;
+      const frameControlsGap = 18;
+      const controlHeight = controls.offsetHeight || 40;
+      const viewport = window.visualViewport;
+      const viewportWidth = viewport ? viewport.width : window.innerWidth;
+      const viewportHeight = viewport ? viewport.height : window.innerHeight;
+      const availableWidth = Math.max(320, viewportWidth - horizontalPadding);
+      const availableHeight = Math.max(240, viewportHeight - verticalPadding - controlHeight - frameControlsGap);
+      const scale = Math.min(availableWidth / 1920, availableHeight / 1080);
+      frame.style.width = (1920 * scale) + "px";
+      frame.style.height = (1080 * scale) + "px";
+      controls.style.width = (1920 * scale) + "px";
+      canvas.style.transform = "scale(" + scale + ")";
+      requestAnimationFrame(() => runLayoutQA());
+    }
+
+    function updateFullscreenButton() {
+      const active = document.fullscreenElement || document.webkitFullscreenElement;
+      fullscreenButton.textContent = active ? "×" : "⛶";
+      fullscreenButton.title = active ? "Exit full screen" : "Enter full screen";
+    }
+
+    fullscreenButton.addEventListener("click", async () => {
+      const active = document.fullscreenElement || document.webkitFullscreenElement;
+      if (active) {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) await exit.call(document);
+      } else {
+        const request = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen;
+        if (request) await request.call(document.documentElement);
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => { updateFullscreenButton(); fitCanvas(); });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchTracking = false;
+    const swipeSurface = document.querySelector(".stage");
+    swipeSurface.addEventListener("touchstart", (event) => {
+      if (event.touches.length !== 1) return;
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+      touchTracking = true;
+    }, { passive: true });
+    swipeSurface.addEventListener("touchend", (event) => {
+      if (!touchTracking || !event.changedTouches.length) return;
+      touchTracking = false;
+      const touch = event.changedTouches[0];
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+      if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) goTo(current + (deltaX < 0 ? 1 : -1));
+    }, { passive: true });
+    swipeSurface.addEventListener("touchcancel", () => { touchTracking = false; }, { passive: true });
+
+    function isRendered(element) {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    }
+
+    function overlaps(a, b, tolerance = 2) {
+      const width = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+      const height = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+      return width > tolerance && height > tolerance;
+    }
+
+    function overlapIsIntentional(first, second) {
+      const firstGroup = first.dataset.overlapGroup;
+      const secondGroup = second.dataset.overlapGroup;
+      return Boolean(firstGroup && firstGroup === secondGroup);
+    }
+
+    function textContentRect(element) {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      return range.getBoundingClientRect();
+    }
+
+    function auditSlideSafeArea() {
+      const violations = [];
+      slides.forEach((slide, index) => {
+        const slideRect = slide.getBoundingClientRect();
+        const scale = slideRect.width / 1920;
+        const safe = { left: slideRect.left + 58 * scale, right: slideRect.right - 58 * scale, top: slideRect.top + 58 * scale, bottom: slideRect.bottom - 58 * scale };
+        [...slide.querySelectorAll(".slide-body > *")].filter(isRendered).forEach((element) => {
+          const rect = element.getBoundingClientRect();
+          if (rect.left < safe.left - 1 || rect.right > safe.right + 1 || rect.top < safe.top - 1 || rect.bottom > safe.bottom + 1) violations.push("слайд " + String(index + 1).padStart(2, "0") + ": " + element.className);
+        });
+      });
+      return violations;
+    }
+
+    function auditSlideLayout() {
+      const violations = [];
+      slides.forEach((slide, index) => {
+        const slideLabel = "слайд " + String(index + 1).padStart(2, "0");
+        const boxes = [...slide.querySelectorAll(".slide-body [data-qa-box]")].filter(isRendered);
+        const textBoxes = [...slide.querySelectorAll(".slide-body [data-qa-text]")].filter(isRendered);
+        textBoxes.forEach((element) => {
+          const box = element.getBoundingClientRect();
+          const content = textContentRect(element);
+          const overflow = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+          if (overflow || content.left < box.left - 1 || content.right > box.right + 1 || content.top < box.top - 1 || content.bottom > box.bottom + 1) violations.push({ type: "text-overflow", slide: slideLabel, element: element.className || element.tagName });
+        });
+        for (let firstIndex = 0; firstIndex < boxes.length; firstIndex += 1) {
+          for (let secondIndex = firstIndex + 1; secondIndex < boxes.length; secondIndex += 1) {
+            const first = boxes[firstIndex];
+            const second = boxes[secondIndex];
+            if (first.contains(second) || second.contains(first) || overlapIsIntentional(first, second)) continue;
+            if (overlaps(first.getBoundingClientRect(), second.getBoundingClientRect())) violations.push({ type: "overlap", slide: slideLabel, first: first.className || first.tagName, second: second.className || second.tagName });
+          }
+        }
+      });
+      return violations;
+    }
+
+    async function runLayoutQA() {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const violations = [...auditSlideSafeArea(), ...auditSlideLayout()];
+      document.documentElement.dataset.layoutQa = violations.length ? "failed" : "passed";
+      if (violations.length) console.error("Layout QA не пройден:", violations);
+      else console.info("Layout QA пройден: переполнений, выхода за safe area и непреднамеренных наложений нет.");
+      return violations;
+    }
+
+    fitCanvas();
+    goTo(0);
+    window.addEventListener("resize", fitCanvas);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", fitCanvas);
+    document.fonts?.addEventListener("loadingdone", runLayoutQA);
+  </script>
+</body>
+</html>
